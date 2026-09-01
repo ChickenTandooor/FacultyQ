@@ -1,8 +1,8 @@
-# QueueLess Campus
+# FacultyQ
 
 ## Smart Faculty Availability & Virtual Queue Management System
 
-QueueLess Campus is an Android-based application designed to reduce unnecessary waiting between students and teaching faculty.
+FacultyQ is an Android-based application designed to reduce unnecessary waiting between students and teaching faculty.
 
 Students can search for faculty members, view their availability, submit queue requests, join virtual queues, track their position, and receive notifications when their turn approaches.
 
