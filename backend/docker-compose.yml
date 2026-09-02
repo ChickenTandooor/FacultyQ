@@ -1,0 +1,60 @@
+services:
+
+  backend:
+
+    build: .
+
+    container_name: facultyq-backend
+
+    ports:
+      - "8000:8000"
+
+    environment:
+
+      DATABASE_URL: postgresql+psycopg://facultyq:facultyq_password@database:5432/facultyq
+
+    depends_on:
+
+      database:
+        condition: service_healthy
+
+
+  database:
+
+    image: postgres:16
+
+    container_name: facultyq-database
+
+    environment:
+
+      POSTGRES_DB: facultyq
+
+      POSTGRES_USER: facultyq
+
+      POSTGRES_PASSWORD: facultyq_password
+
+    ports:
+      - "5432:5432"
+
+    volumes:
+
+      - facultyq-postgres-data:/var/lib/postgresql/data
+
+    healthcheck:
+
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U facultyq -d facultyq"
+        ]
+
+      interval: 5s
+
+      timeout: 5s
+
+      retries: 5
+
+
+volumes:
+
+  facultyq-postgres-data:
