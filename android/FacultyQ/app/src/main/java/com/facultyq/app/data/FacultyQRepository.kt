@@ -117,8 +117,8 @@ object FacultyQRepository {
 
 
     // --------------------------------
-// HIGHER AUTHORITY DATA
-// --------------------------------
+    // HIGHER AUTHORITY DATA
+    // --------------------------------
 
     val authorities =
         mutableStateListOf(
@@ -145,6 +145,7 @@ object FacultyQRepository {
                 isAvailableToday = true
             )
         )
+
 
     // --------------------------------
     // FACULTY DATA
@@ -230,8 +231,8 @@ object FacultyQRepository {
 
 
     // --------------------------------
-// AUTHORITY SEARCH
-// --------------------------------
+    // AUTHORITY SEARCH
+    // --------------------------------
 
     fun searchAuthorities(
         query: String
@@ -260,6 +261,102 @@ object FacultyQRepository {
             it.id == authorityId
         }
     }
+
+
+    // --------------------------------
+    // AUTHORITY MANAGEMENT
+    // --------------------------------
+
+    fun addAuthority(
+        name: String,
+        role: AuthorityRole,
+        department: String,
+        cabin: String
+    ) {
+
+        val newId =
+            "A${System.currentTimeMillis()}"
+
+        authorities.add(
+
+            Authority(
+                id = newId,
+                name = name.trim(),
+                role = role,
+                department = department.trim(),
+                cabin = cabin.trim(),
+                status = FacultyStatus.AVAILABLE,
+                queueCapacity = 5,
+                isAvailableToday = true
+            )
+        )
+    }
+
+
+    fun updateAuthorityStatus(
+        authorityId: String,
+        status: FacultyStatus
+    ) {
+
+        val index =
+            authorities.indexOfFirst {
+
+                it.id == authorityId
+            }
+
+        if (index != -1) {
+
+            authorities[index] =
+                authorities[index].copy(
+                    status = status
+                )
+        }
+    }
+
+
+    fun updateAuthorityAvailability(
+        authorityId: String,
+        availableToday: Boolean
+    ) {
+
+        val index =
+            authorities.indexOfFirst {
+
+                it.id == authorityId
+            }
+
+        if (index != -1) {
+
+            authorities[index] =
+                authorities[index].copy(
+                    isAvailableToday =
+                        availableToday
+                )
+        }
+    }
+
+
+    fun updateAuthorityQueueCapacity(
+        authorityId: String,
+        capacity: Int
+    ) {
+
+        val index =
+            authorities.indexOfFirst {
+
+                it.id == authorityId
+            }
+
+        if (index != -1) {
+
+            authorities[index] =
+                authorities[index].copy(
+                    queueCapacity =
+                        capacity
+                )
+        }
+    }
+
 
     // --------------------------------
     // FACULTY SEARCH
@@ -388,7 +485,7 @@ object FacultyQRepository {
 
 
     // --------------------------------
-    // QUEUE
+    // FACULTY QUEUE
     // --------------------------------
 
     fun getQueueForFaculty(
@@ -398,7 +495,9 @@ object FacultyQRepository {
         return queueEntries
             .filter {
 
-                it.facultyId == facultyId &&
+                it.targetId == facultyId &&
+                        it.targetType ==
+                        QueueTargetType.FACULTY &&
                         it.status ==
                         QueueEntryStatus.WAITING
             }
@@ -419,8 +518,11 @@ object FacultyQRepository {
             it.studentEnrollmentNumber ==
                     enrollmentNumber &&
 
-                    it.facultyId ==
+                    it.targetId ==
                     facultyId &&
+
+                    it.targetType ==
+                    QueueTargetType.FACULTY &&
 
                     it.status ==
                     QueueEntryStatus.WAITING
@@ -484,8 +586,11 @@ object FacultyQRepository {
                 studentEnrollmentNumber =
                     enrollmentNumber,
 
-                facultyId =
+                targetId =
                     facultyId,
+
+                targetType =
+                    QueueTargetType.FACULTY,
 
                 purpose =
                     purpose,
@@ -505,6 +610,138 @@ object FacultyQRepository {
     }
 
 
+    // --------------------------------
+    // AUTHORITY QUEUE
+    // --------------------------------
+
+    fun getQueueForAuthority(
+        authorityId: String
+    ): List<QueueEntry> {
+
+        return queueEntries
+            .filter {
+
+                it.targetId == authorityId &&
+
+                        it.targetType ==
+                        QueueTargetType.AUTHORITY &&
+
+                        it.status ==
+                        QueueEntryStatus.WAITING
+            }
+            .sortedBy {
+
+                it.position
+            }
+    }
+
+
+    fun getQueueEntryForStudentAuthority(
+        enrollmentNumber: String,
+        authorityId: String
+    ): QueueEntry? {
+
+        return queueEntries.find {
+
+            it.studentEnrollmentNumber ==
+                    enrollmentNumber &&
+
+                    it.targetId ==
+                    authorityId &&
+
+                    it.targetType ==
+                    QueueTargetType.AUTHORITY &&
+
+                    it.status ==
+                    QueueEntryStatus.WAITING
+        }
+    }
+
+
+    fun joinAuthorityQueue(
+        enrollmentNumber: String,
+        authorityId: String,
+        purpose: String,
+        studentCurrentClass: String
+    ): QueueEntry? {
+
+        val authority =
+            getAuthority(authorityId)
+                ?: return null
+
+        val currentQueue =
+            getQueueForAuthority(
+                authorityId
+            )
+
+        if (!authority.isAvailableToday) {
+            return null
+        }
+
+        if (
+            authority.status ==
+            FacultyStatus.DO_NOT_DISTURB ||
+
+            authority.status ==
+            FacultyStatus.AWAY
+        ) {
+            return null
+        }
+
+        if (
+            currentQueue.size >=
+            authority.queueCapacity
+        ) {
+            return null
+        }
+
+        val existingEntry =
+            getQueueEntryForStudentAuthority(
+                enrollmentNumber,
+                authorityId
+            )
+
+        if (existingEntry != null) {
+            return existingEntry
+        }
+
+        val newEntry =
+            QueueEntry(
+
+                id =
+                    "Q${System.currentTimeMillis()}",
+
+                studentEnrollmentNumber =
+                    enrollmentNumber,
+
+                targetId =
+                    authorityId,
+
+                targetType =
+                    QueueTargetType.AUTHORITY,
+
+                purpose =
+                    purpose,
+
+                studentCurrentClass =
+                    studentCurrentClass,
+
+                position =
+                    currentQueue.size + 1
+            )
+
+        queueEntries.add(
+            newEntry
+        )
+
+        return newEntry
+    }
+
+
+    // --------------------------------
+    // LEAVE QUEUE
+    // --------------------------------
+
     fun leaveQueue(
         queueId: String
     ) {
@@ -519,23 +756,39 @@ object FacultyQRepository {
             return
         }
 
-        val facultyId =
-            queueEntries[index].facultyId
+        val entry =
+            queueEntries[index]
 
         queueEntries[index] =
-            queueEntries[index].copy(
+            entry.copy(
 
                 status =
                     QueueEntryStatus.LEFT
             )
 
-        reorderQueue(
-            facultyId
-        )
+        if (
+            entry.targetType ==
+            QueueTargetType.FACULTY
+        ) {
+
+            reorderFacultyQueue(
+                entry.targetId
+            )
+
+        } else {
+
+            reorderAuthorityQueue(
+                entry.targetId
+            )
+        }
     }
 
 
-    private fun reorderQueue(
+    // --------------------------------
+    // REORDER FACULTY QUEUE
+    // --------------------------------
+
+    private fun reorderFacultyQueue(
         facultyId: String
     ) {
 
@@ -543,8 +796,61 @@ object FacultyQRepository {
             queueEntries
                 .filter {
 
-                    it.facultyId ==
+                    it.targetId ==
                             facultyId &&
+
+                            it.targetType ==
+                            QueueTargetType.FACULTY &&
+
+                            it.status ==
+                            QueueEntryStatus.WAITING
+                }
+                .sortedBy {
+
+                    it.position
+                }
+
+        waitingEntries.forEachIndexed {
+
+                index,
+                entry ->
+
+            val actualIndex =
+                queueEntries.indexOfFirst {
+
+                    it.id == entry.id
+                }
+
+            if (actualIndex != -1) {
+
+                queueEntries[actualIndex] =
+                    entry.copy(
+
+                        position =
+                            index + 1
+                    )
+            }
+        }
+    }
+
+
+    // --------------------------------
+    // REORDER AUTHORITY QUEUE
+    // --------------------------------
+
+    private fun reorderAuthorityQueue(
+        authorityId: String
+    ) {
+
+        val waitingEntries =
+            queueEntries
+                .filter {
+
+                    it.targetId ==
+                            authorityId &&
+
+                            it.targetType ==
+                            QueueTargetType.AUTHORITY &&
 
                             it.status ==
                             QueueEntryStatus.WAITING

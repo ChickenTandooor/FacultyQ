@@ -5,6 +5,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
 import com.facultyq.app.data.FacultyQRepository
 import com.facultyq.app.screens.AdminScreen
+import com.facultyq.app.screens.AuthorityQueueDetailsScreen
+import com.facultyq.app.screens.AuthoritySearchScreen
 import com.facultyq.app.screens.FacultyDashboardScreen
 import com.facultyq.app.screens.FacultyLoginScreen
 import com.facultyq.app.screens.FacultyRegistrationScreen
@@ -13,7 +15,8 @@ import com.facultyq.app.screens.QueueDetailsScreen
 import com.facultyq.app.screens.QueueScreen
 import com.facultyq.app.screens.StartScreen
 import com.facultyq.app.screens.StudentScreen
-
+import com.facultyq.app.screens.AuthorityQueueScreen
+import androidx.activity.compose.BackHandler
 @Composable
 fun AppNavigation() {
 
@@ -38,6 +41,11 @@ fun AppNavigation() {
         mutableStateOf("")
     }
 
+    var selectedAuthorityId by
+    remember {
+        mutableStateOf("")
+    }
+
     var queueId by
     remember {
         mutableStateOf("")
@@ -45,6 +53,59 @@ fun AppNavigation() {
 
     val context =
         LocalContext.current
+
+    BackHandler(
+        enabled = currentScreen != "start"
+    ) {
+
+        currentScreen = when (currentScreen) {
+
+            // Student flow
+            "student" ->
+                "start"
+
+            "authoritySearch" ->
+                "start"
+
+            "authorityQueueDetails" ->
+                "authoritySearch"
+
+            "authorityQueue" ->
+                "authorityQueueDetails"
+
+
+            // Old faculty flow
+            "facultySearch" ->
+                "start"
+
+            "queueDetails" ->
+                "facultySearch"
+
+            "queue" ->
+                "queueDetails"
+
+
+            // Faculty authority-management flow
+            "facultyLogin" ->
+                "start"
+
+            "facultyDashboard" ->
+                "facultyLogin"
+
+            "facultyRegistration" ->
+                "start"
+
+
+            // Admin
+            "admin" ->
+                "start"
+
+
+            // Safety fallback
+            else ->
+                "start"
+        }
+    }
 
     when (currentScreen) {
 
@@ -69,7 +130,7 @@ fun AppNavigation() {
                             savedStudent.enrollmentNumber
 
                         currentScreen =
-                            "facultySearch"
+                            "authoritySearch"
 
                     } else {
 
@@ -121,7 +182,101 @@ fun AppNavigation() {
                         number
 
                     currentScreen =
-                        "facultySearch"
+                        "authoritySearch"
+                }
+            )
+        }
+
+
+        // -------------------------
+        // AUTHORITY SEARCH
+        // -------------------------
+
+        "authoritySearch" -> {
+
+            AuthoritySearchScreen(
+
+                onAuthoritySelected = {
+
+                        authorityId ->
+
+                    selectedAuthorityId =
+                        authorityId
+
+                    currentScreen =
+                        "authorityQueueDetails"
+                },
+
+                onBack = {
+
+                    currentScreen =
+                        "start"
+                }
+            )
+        }
+
+
+// -------------------------
+// AUTHORITY QUEUE DETAILS
+// -------------------------
+
+        "authorityQueueDetails" -> {
+
+            AuthorityQueueDetailsScreen(
+
+                enrollmentNumber =
+                    enrollmentNumber,
+
+                authorityId =
+                    selectedAuthorityId,
+
+                onBackClick = {
+
+                    currentScreen =
+                        "authoritySearch"
+                },
+
+                onJoined = {
+
+                        newQueueId ->
+
+                    queueId =
+                        newQueueId
+
+                    Toast.makeText(
+                        context,
+                        "Successfully joined the queue",
+                        Toast.LENGTH_SHORT
+                    ).show()
+
+                    currentScreen =
+                        "authorityQueue"
+                }
+            )
+        }
+
+
+        // -------------------------
+        // AUTHORITY QUEUE
+        // -------------------------
+
+        "authorityQueue" -> {
+
+            AuthorityQueueScreen(
+
+                enrollmentNumber =
+                    enrollmentNumber,
+
+                authorityId =
+                    selectedAuthorityId,
+
+                queueId =
+                    queueId,
+
+                onBackClick = {
+
+                    currentScreen =
+                        "authoritySearch"
                 }
             )
         }

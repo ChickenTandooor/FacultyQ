@@ -59,7 +59,7 @@ fun StartScreen(
         )
 
         Text(
-            text = "Virtual faculty queue",
+            text = "Virtual authority queue",
             style =
                 MaterialTheme.typography.bodyMedium
         )
@@ -82,7 +82,7 @@ fun StartScreen(
 
         Text(
             text =
-                "Meet your faculty without waiting in a physical line."
+                "Meet your Dean or HOD without waiting in a physical line."
         )
 
         Spacer(
@@ -105,7 +105,7 @@ fun StartScreen(
             icon = Icons.Default.Person,
             title = "Student",
             description =
-                "Search faculty and join a queue",
+                "Search Dean or HOD and join a queue",
             onClick =
                 onStudentClick
         )
@@ -117,7 +117,7 @@ fun StartScreen(
 
         RoleCard(
             icon = Icons.Default.Person,
-            title = "Faculty",
+            title = "Authority",
             description =
                 "Manage your availability and queue",
             onClick =
@@ -135,7 +135,7 @@ fun StartScreen(
         ) {
 
             Text(
-                "Faculty registration"
+                "Authority registration"
             )
         }
 
