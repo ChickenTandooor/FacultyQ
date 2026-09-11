@@ -118,6 +118,7 @@ fun QueueScreen(
                     text = "YOUR POSITION",
                     style =
                         MaterialTheme.typography.labelMedium
+
                 )
 
                 Spacer(

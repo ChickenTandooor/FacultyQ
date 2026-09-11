@@ -160,6 +160,8 @@ fun FacultyLoginScreen(
                 "Only your own faculty dashboard will be shown here.",
             style =
                 MaterialTheme.typography.bodySmall
+
+
         )
     }
 }

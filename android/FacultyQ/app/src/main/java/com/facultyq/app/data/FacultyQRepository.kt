@@ -117,6 +117,36 @@ object FacultyQRepository {
 
 
     // --------------------------------
+// HIGHER AUTHORITY DATA
+// --------------------------------
+
+    val authorities =
+        mutableStateListOf(
+
+            Authority(
+                id = "A001",
+                name = "Dr. Rajesh Sharma",
+                role = AuthorityRole.HOD,
+                department = "Computer Engineering",
+                cabin = "N601",
+                status = FacultyStatus.AVAILABLE,
+                queueCapacity = 5,
+                isAvailableToday = true
+            ),
+
+            Authority(
+                id = "A002",
+                name = "Dr. Anita Deshmukh",
+                role = AuthorityRole.DEAN,
+                department = "College Administration",
+                cabin = "A101",
+                status = FacultyStatus.AVAILABLE,
+                queueCapacity = 10,
+                isAvailableToday = true
+            )
+        )
+
+    // --------------------------------
     // FACULTY DATA
     // --------------------------------
 
@@ -198,6 +228,38 @@ object FacultyQRepository {
         }
     }
 
+
+    // --------------------------------
+// AUTHORITY SEARCH
+// --------------------------------
+
+    fun searchAuthorities(
+        query: String
+    ): List<Authority> {
+
+        if (query.isBlank()) {
+            return emptyList()
+        }
+
+        return authorities.filter {
+
+            it.name.contains(
+                query.trim(),
+                ignoreCase = true
+            )
+        }
+    }
+
+
+    fun getAuthority(
+        authorityId: String
+    ): Authority? {
+
+        return authorities.find {
+
+            it.id == authorityId
+        }
+    }
 
     // --------------------------------
     // FACULTY SEARCH
