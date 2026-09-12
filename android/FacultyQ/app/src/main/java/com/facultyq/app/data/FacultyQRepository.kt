@@ -952,4 +952,60 @@ object FacultyQRepository {
             )
         }
     }
+    fun serveQueueEntry(queueId: String): Boolean {
+        val index = queueEntries.indexOfFirst { it.id == queueId }
+
+        if (index == -1) {
+            return false
+        }
+
+        val entry = queueEntries[index]
+
+        if (entry.status != QueueEntryStatus.WAITING) {
+            return false
+        }
+
+        queueEntries[index] = entry.copy(
+            status = QueueEntryStatus.SERVING
+        )
+
+        return true
+    }
+
+    fun completeQueueEntry(queueId: String): Boolean {
+        val index = queueEntries.indexOfFirst { it.id == queueId }
+
+        if (index == -1) {
+            return false
+        }
+
+        val entry = queueEntries[index]
+
+        queueEntries[index] = entry.copy(
+            status = QueueEntryStatus.COMPLETED
+        )
+
+        // Recalculate positions for the remaining waiting students
+        val waitingEntries = queueEntries
+            .filter {
+                it.targetId == entry.targetId &&
+                        it.targetType == entry.targetType &&
+                        it.status == QueueEntryStatus.WAITING
+            }
+            .sortedBy { it.position }
+
+        waitingEntries.forEachIndexed { newIndex, waitingEntry ->
+            val waitingIndex = queueEntries.indexOfFirst {
+                it.id == waitingEntry.id
+            }
+
+            if (waitingIndex != -1) {
+                queueEntries[waitingIndex] = waitingEntry.copy(
+                    position = newIndex + 1
+                )
+            }
+        }
+
+        return true
+    }
 }

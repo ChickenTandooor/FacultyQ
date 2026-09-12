@@ -5,6 +5,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
 import com.facultyq.app.data.FacultyQRepository
 import com.facultyq.app.screens.AdminScreen
+import com.facultyq.app.screens.AuthorityDashboardScreen
 import com.facultyq.app.screens.AuthorityQueueDetailsScreen
 import com.facultyq.app.screens.AuthoritySearchScreen
 import com.facultyq.app.screens.FacultyDashboardScreen
@@ -17,6 +18,7 @@ import com.facultyq.app.screens.StartScreen
 import com.facultyq.app.screens.StudentScreen
 import com.facultyq.app.screens.AuthorityQueueScreen
 import androidx.activity.compose.BackHandler
+import com.facultyq.app.screens.AuthorityLoginScreen
 @Composable
 fun AppNavigation() {
 
@@ -86,6 +88,13 @@ fun AppNavigation() {
 
 
             // Faculty authority-management flow
+
+            "authorityLogin" ->
+                "start"
+
+            "authorityDashboard" ->
+                "authorityLogin"
+
             "facultyLogin" ->
                 "start"
 
@@ -142,7 +151,7 @@ fun AppNavigation() {
                 onFacultyClick = {
 
                     currentScreen =
-                        "facultyLogin"
+                        "authorityLogin"
                 },
 
                 onAdminClick = {
@@ -371,6 +380,39 @@ fun AppNavigation() {
                 }
             )
         }
+
+        // -------------------------
+        // AUTHORITY FLOW
+        // -------------------------
+
+        "authorityLogin" -> AuthorityLoginScreen(
+
+            onAuthoritySelected = { authorityId ->
+
+                selectedAuthorityId =
+                    authorityId
+
+                currentScreen =
+                    "authorityDashboard"
+            },
+
+            onBackClick = {
+
+                currentScreen =
+                    "start"
+            }
+        )
+
+        "authorityDashboard" -> AuthorityDashboardScreen(
+
+            authorityId = selectedAuthorityId,
+
+            onBackClick = {
+
+                currentScreen =
+                    "authorityLogin"
+            }
+        )
 
 
         // -------------------------
