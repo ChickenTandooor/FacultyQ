@@ -10,17 +10,24 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.facultyq.app.data.Authority
 import com.facultyq.app.data.FacultyQRepository
+import com.facultyq.app.data.FacultyStatus
 
 @Composable
 fun AuthorityDashboardScreen(
@@ -67,6 +74,23 @@ fun AuthorityDashboardScreen(
             authority = authority
         )
 
+        // -------------------------
+        // AUTHORITY STATUS
+        // -------------------------
+
+        Text(
+            text = "Status",
+            style = MaterialTheme.typography.titleMedium
+        )
+
+        AuthorityStatusSelector(
+            authority = authority
+        )
+
+        // -------------------------
+        // AVAILABILITY
+        // -------------------------
+
         Text(
             text = "Availability",
             style = MaterialTheme.typography.titleMedium
@@ -96,6 +120,10 @@ fun AuthorityDashboardScreen(
                 }
             )
         }
+
+        // -------------------------
+        // QUEUE STATUS
+        // -------------------------
 
         Text(
             text = "Queue Status",
@@ -146,6 +174,10 @@ fun AuthorityDashboardScreen(
 }
 
 
+// -------------------------
+// AUTHORITY HEADER
+// -------------------------
+
 @Composable
 private fun AuthorityHeader(
     authority: Authority
@@ -183,6 +215,74 @@ private fun AuthorityHeader(
     }
 }
 
+
+// -------------------------
+// AUTHORITY STATUS SELECTOR
+// -------------------------
+
+@Composable
+private fun AuthorityStatusSelector(
+    authority: Authority
+) {
+
+    var expanded by remember {
+        mutableStateOf(false)
+    }
+
+    var selectedStatus by remember {
+        mutableStateOf(authority.status)
+    }
+
+    Column(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+
+        OutlinedButton(
+            onClick = {
+                expanded = true
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(
+                text = selectedStatus.name.replace("_", " ")
+            )
+        }
+
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = {
+                expanded = false
+            }
+        ) {
+
+            FacultyStatus.values().forEach { status ->
+
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            status.name.replace("_", " ")
+                        )
+                    },
+                    onClick = {
+
+                        selectedStatus = status
+                        expanded = false
+
+                        FacultyQRepository.updateAuthorityStatus(
+                            authority.id,
+                            status
+                        )
+                    }
+                )
+            }
+        }
+    }
+}
+
+
+// -------------------------
+// QUEUE STUDENT CARD
+// -------------------------
 
 @Composable
 private fun AuthorityQueueStudentCard(
