@@ -665,74 +665,56 @@ object FacultyQRepository {
         studentCurrentClass: String
     ): QueueEntry? {
 
-        val authority =
-            getAuthority(authorityId)
-                ?: return null
+        val authority = getAuthority(authorityId)
+            ?: return null
 
-        val currentQueue =
-            getQueueForAuthority(
-                authorityId
-            )
-
+        // Authority must be available today
         if (!authority.isAvailableToday) {
             return null
         }
 
-        if (
-            authority.status ==
-            FacultyStatus.DO_NOT_DISTURB ||
-
-            authority.status ==
-            FacultyStatus.AWAY
+        // Authority should not accept new students when unavailable
+        if (authority.status == FacultyStatus.AWAY ||
+            authority.status == FacultyStatus.DO_NOT_DISTURB
         ) {
             return null
         }
 
-        if (
-            currentQueue.size >=
-            authority.queueCapacity
-        ) {
+        // Get current waiting students
+        val currentQueue = getQueueForAuthority(authorityId)
+
+        // Queue capacity check
+        if (currentQueue.size >= authority.queueCapacity) {
             return null
         }
 
-        val existingEntry =
-            getQueueEntryForStudentAuthority(
-                enrollmentNumber,
-                authorityId
-            )
-
-        if (existingEntry != null) {
-            return existingEntry
+        // Prevent the same student from joining the same authority twice
+        val alreadyInQueue = queueEntries.any {
+            it.studentEnrollmentNumber == enrollmentNumber &&
+                    it.targetId == authorityId &&
+                    it.targetType == QueueTargetType.AUTHORITY &&
+                    (it.status == QueueEntryStatus.WAITING ||
+                            it.status == QueueEntryStatus.SERVING)
         }
 
-        val newEntry =
-            QueueEntry(
+        if (alreadyInQueue) {
+            return null
+        }
 
-                id =
-                    "Q${System.currentTimeMillis()}",
+        val newPosition = currentQueue.size + 1
 
-                studentEnrollmentNumber =
-                    enrollmentNumber,
-
-                targetId =
-                    authorityId,
-
-                targetType =
-                    QueueTargetType.AUTHORITY,
-
-                purpose =
-                    purpose,
-
-                studentCurrentClass =
-                    studentCurrentClass,
-
-                position =
-                    currentQueue.size + 1
-            )
-
-        queueEntries.add(
-            newEntry
+        val newEntry = QueueEntry(
+            id = "AQ${System.currentTimeMillis()}",
+            studentEnrollmentNumber = enrollmentNumber,
+            targetId = authorityId,
+            targetType = QueueTargetType.AUTHORITY,
+            purpose = purpose,
+            studentCurrentClass = studentCurrentClass,
+            position = newPosition,
+            status = QueueEntryStatus.WAITING
         )
+
+        queueEntries.add(newEntry)
 
         return newEntry
     }
@@ -953,7 +935,10 @@ object FacultyQRepository {
         }
     }
     fun serveQueueEntry(queueId: String): Boolean {
-        val index = queueEntries.indexOfFirst { it.id == queueId }
+
+        val index = queueEntries.indexOfFirst {
+            it.id == queueId
+        }
 
         if (index == -1) {
             return false
@@ -961,7 +946,18 @@ object FacultyQRepository {
 
         val entry = queueEntries[index]
 
+        // Only a waiting student can be served
         if (entry.status != QueueEntryStatus.WAITING) {
+            return false
+        }
+
+        // Make sure this is the first waiting student
+        val firstWaiting = getQueueForAuthority(entry.targetId)
+            .firstOrNull {
+                it.status == QueueEntryStatus.WAITING
+            }
+
+        if (firstWaiting?.id != queueId) {
             return false
         }
 
@@ -973,7 +969,10 @@ object FacultyQRepository {
     }
 
     fun completeQueueEntry(queueId: String): Boolean {
-        val index = queueEntries.indexOfFirst { it.id == queueId }
+
+        val index = queueEntries.indexOfFirst {
+            it.id == queueId
+        }
 
         if (index == -1) {
             return false
@@ -981,28 +980,38 @@ object FacultyQRepository {
 
         val entry = queueEntries[index]
 
+        // A student must be served before being completed
+        if (entry.status != QueueEntryStatus.SERVING) {
+            return false
+        }
+
         queueEntries[index] = entry.copy(
             status = QueueEntryStatus.COMPLETED
         )
 
-        // Recalculate positions for the remaining waiting students
+        // Recalculate positions of remaining waiting students
         val waitingEntries = queueEntries
             .filter {
                 it.targetId == entry.targetId &&
                         it.targetType == entry.targetType &&
                         it.status == QueueEntryStatus.WAITING
             }
-            .sortedBy { it.position }
+            .sortedBy {
+                it.position
+            }
 
         waitingEntries.forEachIndexed { newIndex, waitingEntry ->
+
             val waitingIndex = queueEntries.indexOfFirst {
                 it.id == waitingEntry.id
             }
 
             if (waitingIndex != -1) {
-                queueEntries[waitingIndex] = waitingEntry.copy(
-                    position = newIndex + 1
-                )
+
+                queueEntries[waitingIndex] =
+                    waitingEntry.copy(
+                        position = newIndex + 1
+                    )
             }
         }
 
