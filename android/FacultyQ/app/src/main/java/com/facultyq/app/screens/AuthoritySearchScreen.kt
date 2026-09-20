@@ -11,11 +11,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.facultyq.app.data.Authority
@@ -26,11 +22,48 @@ fun AuthoritySearchScreen(
     onAuthoritySelected: (String) -> Unit,
     onBack: () -> Unit
 ) {
-    var searchQuery by remember {
-        mutableStateOf("")
+    var searchQuery by remember { mutableStateOf("") }
+
+    var authorities by remember {
+        mutableStateOf<List<Authority>>(emptyList())
     }
 
-    val authorities = FacultyQRepository.searchAuthorities(searchQuery)
+    var loading by remember {
+        mutableStateOf(true)
+    }
+
+    var errorMessage by remember {
+        mutableStateOf<String?>(null)
+    }
+
+    LaunchedEffect(Unit) {
+
+        try {
+
+            authorities =
+                FacultyQRepository.fetchAuthoritiesFromBackend()
+
+            errorMessage = null
+
+        } catch (e: Exception) {
+
+            errorMessage =
+                "${e.javaClass.simpleName}: ${e.message}"
+
+        } finally {
+
+            loading = false
+        }
+    }
+
+    val filteredAuthorities =
+        authorities.filter { authority ->
+
+            authority.name.contains(
+                searchQuery,
+                ignoreCase = true
+            )
+        }
 
     Column(
         modifier = Modifier
@@ -40,12 +73,12 @@ fun AuthoritySearchScreen(
     ) {
 
         Text(
-            text = "Find Authority",
+            "Find Authority",
             style = MaterialTheme.typography.headlineSmall
         )
 
         Text(
-            text = "Search for a Dean or HOD",
+            "Search for a Dean or HOD",
             style = MaterialTheme.typography.bodyMedium
         )
 
@@ -61,17 +94,48 @@ fun AuthoritySearchScreen(
             singleLine = true
         )
 
-        LazyColumn(
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            items(authorities) { authority ->
+        when {
 
-                AuthorityCard(
-                    authority = authority,
-                    onClick = {
-                        onAuthoritySelected(authority.id)
-                    }
+            loading -> {
+
+                Text(
+                    "Loading authorities..."
                 )
+            }
+
+            errorMessage != null -> {
+
+                Text(
+                    "Unable to load authorities.\n\n$errorMessage"
+                )
+            }
+
+            filteredAuthorities.isEmpty() -> {
+
+                Text(
+                    "No authorities found."
+                )
+            }
+
+            else -> {
+
+                LazyColumn(
+                    verticalArrangement =
+                        Arrangement.spacedBy(12.dp)
+                ) {
+
+                    items(filteredAuthorities) { authority ->
+
+                        AuthorityCard(
+                            authority = authority,
+                            onClick = {
+                                onAuthoritySelected(
+                                    authority.id
+                                )
+                            }
+                        )
+                    }
+                }
             }
         }
     }
@@ -86,38 +150,45 @@ private fun AuthorityCard(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth()
     ) {
+
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+            Modifier.padding(16.dp),
+            verticalArrangement =
+                Arrangement.spacedBy(6.dp)
         ) {
 
             Text(
-                text = authority.name,
+                authority.name,
                 style = MaterialTheme.typography.titleMedium
             )
 
             Text(
-                text = authority.role.name,
+                if (authority.role == com.facultyq.app.data.AuthorityRole.HOD) {
+                    "${authority.department} HOD"
+                } else {
+                    "DEAN"
+                },
                 style = MaterialTheme.typography.labelMedium
             )
 
             Text(
-                text = authority.department,
+                authority.department,
                 style = MaterialTheme.typography.bodyMedium
             )
 
             Text(
-                text = "Cabin ${authority.cabin}",
+                "Cabin ${authority.cabin}",
                 style = MaterialTheme.typography.bodyMedium
             )
 
             Text(
-                text = authority.status.name.replace("_", " "),
+                authority.status.name
+                    .replace("_", " "),
                 style = MaterialTheme.typography.labelMedium
             )
 
             Text(
-                text = "Queue capacity: ${authority.queueCapacity}",
+                "Queue capacity: ${authority.queueCapacity}",
                 style = MaterialTheme.typography.bodySmall
             )
         }

@@ -3,6 +3,8 @@ package com.facultyq.app.data
 import android.content.Context
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
+import com.facultyq.app.network.NetworkModule
+import com.facultyq.app.network.JoinAuthorityQueueRequest
 
 object FacultyQRepository {
 
@@ -67,7 +69,178 @@ object FacultyQRepository {
         }
     }
 
+    suspend fun fetchAuthoritiesFromBackend(): List<Authority> {
+        val response = NetworkModule.api.getAuthorities()
 
+        return response.authorities.mapNotNull { dto ->
+
+            val roleText = dto.role.trim()
+
+            val role = when {
+                roleText.equals("DEAN", ignoreCase = true) -> {
+                    AuthorityRole.DEAN
+                }
+
+                roleText.equals("HOD", ignoreCase = true) -> {
+                    AuthorityRole.HOD
+                }
+
+                roleText.endsWith("HOD", ignoreCase = true) -> {
+                    AuthorityRole.HOD
+                }
+
+                else -> {
+                    null
+                }
+            }
+
+            val status = try {
+                FacultyStatus.valueOf(
+                    dto.status.trim().uppercase()
+                )
+            } catch (e: IllegalArgumentException) {
+                FacultyStatus.AVAILABLE
+            }
+
+            if (role == null) {
+                null
+            } else {
+                Authority(
+                    id = dto.id,
+                    name = dto.name,
+                    role = role,
+                    department = dto.department,
+                    cabin = dto.cabin,
+                    status = status,
+                    queueCapacity = dto.queue_capacity,
+                    isAvailableToday = dto.is_available_today
+                )
+            }
+        }
+    }
+
+    suspend fun fetchAuthorityFromBackend(
+        authorityId: String
+    ): Authority? {
+
+        return try {
+
+            val dto =
+                NetworkModule.api.getAuthority(authorityId)
+
+            val roleText =
+                dto.role.trim()
+
+            val role =
+                when {
+                    roleText.equals(
+                        "DEAN",
+                        ignoreCase = true
+                    ) -> {
+                        AuthorityRole.DEAN
+                    }
+
+                    roleText.equals(
+                        "HOD",
+                        ignoreCase = true
+                    ) -> {
+                        AuthorityRole.HOD
+                    }
+
+                    roleText.endsWith(
+                        "HOD",
+                        ignoreCase = true
+                    ) -> {
+                        AuthorityRole.HOD
+                    }
+
+                    else -> {
+                        return null
+                    }
+                }
+
+            val status =
+                try {
+                    FacultyStatus.valueOf(
+                        dto.status
+                            .trim()
+                            .uppercase()
+                    )
+                } catch (e: IllegalArgumentException) {
+                    FacultyStatus.AVAILABLE
+                }
+
+            Authority(
+                id = dto.id,
+                name = dto.name,
+                role = role,
+                department = dto.department,
+                cabin = dto.cabin,
+                status = status,
+                queueCapacity = dto.queue_capacity,
+                isAvailableToday = dto.is_available_today
+            )
+
+        } catch (e: Exception) {
+
+            null
+        }
+    }
+
+    suspend fun joinAuthorityQueueBackend(
+        enrollmentNumber: String,
+        authorityId: String,
+        purpose: String,
+        studentCurrentClass: String
+    ): QueueEntry? {
+
+        return try {
+
+            val request = JoinAuthorityQueueRequest(
+                student_enrollment_number = enrollmentNumber,
+                purpose = purpose,
+                student_current_class = studentCurrentClass
+            )
+
+            val response =
+                NetworkModule.api.joinAuthorityQueue(
+                    authorityId = authorityId,
+                    request = request
+                )
+
+            val dto = response.queue_entry
+
+            QueueEntry(
+                id = dto.id,
+                studentEnrollmentNumber =
+                    dto.student_enrollment_number,
+                targetId =
+                    dto.target_id,
+                targetType =
+                    QueueTargetType.AUTHORITY,
+                purpose =
+                    dto.purpose,
+                studentCurrentClass =
+                    dto.student_current_class,
+                position =
+                    dto.position,
+                status =
+                    try {
+                        QueueEntryStatus.valueOf(
+                            dto.status
+                                .trim()
+                                .uppercase()
+                        )
+                    } catch (e: IllegalArgumentException) {
+                        QueueEntryStatus.WAITING
+                    }
+            )
+
+        } catch (e: Exception) {
+
+            null
+        }
+    }
     fun saveStudent(
         context: Context,
         student: Student
@@ -658,65 +831,23 @@ object FacultyQRepository {
     }
 
 
-    fun joinAuthorityQueue(
+    // --------------------------------
+    // AUTHORITY QUEUE - BACKEND
+    // --------------------------------
+
+    suspend fun joinAuthorityQueue(
         enrollmentNumber: String,
         authorityId: String,
         purpose: String,
         studentCurrentClass: String
     ): QueueEntry? {
 
-        val authority = getAuthority(authorityId)
-            ?: return null
-
-        // Authority must be available today
-        if (!authority.isAvailableToday) {
-            return null
-        }
-
-        // Authority should not accept new students when unavailable
-        if (authority.status == FacultyStatus.AWAY ||
-            authority.status == FacultyStatus.DO_NOT_DISTURB
-        ) {
-            return null
-        }
-
-        // Get current waiting students
-        val currentQueue = getQueueForAuthority(authorityId)
-
-        // Queue capacity check
-        if (currentQueue.size >= authority.queueCapacity) {
-            return null
-        }
-
-        // Prevent the same student from joining the same authority twice
-        val alreadyInQueue = queueEntries.any {
-            it.studentEnrollmentNumber == enrollmentNumber &&
-                    it.targetId == authorityId &&
-                    it.targetType == QueueTargetType.AUTHORITY &&
-                    (it.status == QueueEntryStatus.WAITING ||
-                            it.status == QueueEntryStatus.SERVING)
-        }
-
-        if (alreadyInQueue) {
-            return null
-        }
-
-        val newPosition = currentQueue.size + 1
-
-        val newEntry = QueueEntry(
-            id = "AQ${System.currentTimeMillis()}",
-            studentEnrollmentNumber = enrollmentNumber,
-            targetId = authorityId,
-            targetType = QueueTargetType.AUTHORITY,
+        return joinAuthorityQueueBackend(
+            enrollmentNumber = enrollmentNumber,
+            authorityId = authorityId,
             purpose = purpose,
-            studentCurrentClass = studentCurrentClass,
-            position = newPosition,
-            status = QueueEntryStatus.WAITING
+            studentCurrentClass = studentCurrentClass
         )
-
-        queueEntries.add(newEntry)
-
-        return newEntry
     }
 
 

@@ -1,60 +1,145 @@
 package com.facultyq.app.screens
 
-import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.facultyq.app.data.Authority
 import com.facultyq.app.data.FacultyQRepository
-import com.facultyq.app.data.FacultyStatus
+import com.facultyq.app.data.Student
+import com.facultyq.app.network.AddStudentRequest
+import com.facultyq.app.network.JoinAuthorityQueueRequest
+import com.facultyq.app.network.NetworkModule
+import kotlinx.coroutines.launch
+import retrofit2.HttpException
 
 @Composable
 fun AuthorityQueueDetailsScreen(
-    enrollmentNumber: String,
     authorityId: String,
-    onBackClick: () -> Unit,
-    onJoined: (String) -> Unit
+    enrollmentNumber: String,
+    onJoined: (String) -> Unit,
+    onBack: () -> Unit
 ) {
+    val scope = rememberCoroutineScope()
 
-    val context = LocalContext.current
+    var authority by remember { mutableStateOf<Authority?>(null) }
+    var student by remember { mutableStateOf<Student?>(null) }
 
-    val authority =
-        FacultyQRepository.getAuthority(
-            authorityId
-        )
+    var purpose by remember { mutableStateOf("") }
 
-    val student =
-        FacultyQRepository.getStudent(
-            enrollmentNumber
-        )
-            ?: FacultyQRepository.savedStudent.value
+    var loading by remember { mutableStateOf(true) }
+    var joining by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
 
-    var purpose by remember {
-        mutableStateOf("")
+    /*
+     * Load authority and student information from the backend.
+     */
+    LaunchedEffect(authorityId, enrollmentNumber) {
+
+        try {
+            authority =
+                FacultyQRepository.fetchAuthorityFromBackend(authorityId)
+
+            /*
+             * First try PostgreSQL.
+             */
+            try {
+
+                val backendStudent =
+                    NetworkModule.api.getStudent(enrollmentNumber)
+
+                student = Student(
+                    enrollmentNumber =
+                        backendStudent.enrollment_number,
+                    name =
+                        backendStudent.name,
+                    currentClass =
+                        backendStudent.current_class
+                )
+
+            } catch (e: HttpException) {
+
+                /*
+                 * If the student is not yet in PostgreSQL,
+                 * fall back to the locally saved student.
+                 */
+                if (e.code() == 404) {
+
+                    val localStudent =
+                        FacultyQRepository.getStudent(enrollmentNumber)
+
+                    if (localStudent != null) {
+                        student = localStudent
+                    } else {
+                        errorMessage =
+                            "Student information is unavailable."
+                    }
+
+                } else {
+                    throw e
+                }
+            }
+
+        } catch (e: Exception) {
+
+            errorMessage =
+                e.message ?: "Unable to load information."
+
+        } finally {
+            loading = false
+        }
     }
 
-    if (authority == null) {
+    /*
+     * Loading screen
+     */
+    if (loading) {
 
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(20.dp),
-            verticalArrangement =
-                Arrangement.spacedBy(16.dp)
+                .padding(24.dp),
+            verticalArrangement = Arrangement.Center
+        ) {
+
+            CircularProgressIndicator()
+
+            Text(
+                text = "Loading...",
+                modifier = Modifier.padding(top = 16.dp)
+            )
+        }
+
+        return
+    }
+
+    val selectedAuthority = authority
+
+    /*
+     * Authority could not be loaded.
+     */
+    if (selectedAuthority == null) {
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
 
             Text(
@@ -62,8 +147,15 @@ fun AuthorityQueueDetailsScreen(
                 style = MaterialTheme.typography.headlineSmall
             )
 
-            TextButton(
-                onClick = onBackClick
+            errorMessage?.let {
+                Text(
+                    text = it,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+
+            Button(
+                onClick = onBack
             ) {
                 Text("Back")
             }
@@ -72,137 +164,287 @@ fun AuthorityQueueDetailsScreen(
         return
     }
 
+    /*
+     * Main screen
+     */
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(20.dp),
-        verticalArrangement =
-            Arrangement.spacedBy(14.dp)
+            .padding(24.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
 
         Text(
-            text = authority.name,
+            text = selectedAuthority.name,
             style = MaterialTheme.typography.headlineSmall
         )
 
         Text(
-            text = authority.role.name,
-            style = MaterialTheme.typography.labelMedium
-        )
-
-        Text(
-            text = authority.department,
-            style = MaterialTheme.typography.bodyMedium
-        )
-
-        Text(
-            text = "Cabin ${authority.cabin}",
-            style = MaterialTheme.typography.bodyMedium
-        )
-
-        Text(
-            text = authority.status.name.replace(
-                "_",
-                " "
-            ),
-            style = MaterialTheme.typography.labelMedium
+            text =
+                "${selectedAuthority.role.name} • " +
+                        selectedAuthority.department
         )
 
         Text(
             text =
-                "Queue capacity: ${authority.queueCapacity}",
-            style = MaterialTheme.typography.bodySmall
-        )
-
-        Text(
-            text = "Your Details",
-            style = MaterialTheme.typography.titleMedium
+                "Cabin: ${selectedAuthority.cabin}"
         )
 
         Text(
             text =
-                "Enrollment: $enrollmentNumber",
-            style = MaterialTheme.typography.bodyMedium
+                "Status: ${selectedAuthority.status.name}"
         )
 
         Text(
             text =
-                "Class: ${
-                    student?.currentClass
-                        ?: "Not available"
-                }",
-            style = MaterialTheme.typography.bodyMedium
+                "Queue capacity: " +
+                        selectedAuthority.queueCapacity
         )
 
-        Text(
-            text = "Purpose of Visit",
-            style = MaterialTheme.typography.titleMedium
-        )
+        /*
+         * Student information
+         */
+        student?.let { currentStudent ->
 
+            Text(
+                text =
+                    "Student: ${currentStudent.name}"
+            )
+
+            Text(
+                text =
+                    "Enrollment: " +
+                            currentStudent.enrollmentNumber
+            )
+
+            Text(
+                text =
+                    "Class: ${currentStudent.currentClass}"
+            )
+        }
+
+        /*
+         * Purpose
+         */
         OutlinedTextField(
             value = purpose,
             onValueChange = {
                 purpose = it
+                errorMessage = null
             },
             modifier = Modifier.fillMaxWidth(),
             label = {
-                Text("Enter purpose")
+                Text("Purpose of visit")
+            },
+            placeholder = {
+                Text("Example: Signature on document")
             },
             minLines = 3
         )
 
+        /*
+         * Error
+         */
+        errorMessage?.let { message ->
+
+            Text(
+                text = message,
+                color = MaterialTheme.colorScheme.error
+            )
+        }
+
+        /*
+         * Join Queue
+         */
         Button(
             onClick = {
 
-                if (purpose.isBlank()) {
+                val currentStudent = student
 
-                    Toast.makeText(
-                        context,
-                        "Please enter the purpose of your visit",
-                        Toast.LENGTH_SHORT
-                    ).show()
-
+                if (currentStudent == null) {
+                    errorMessage =
+                        "Student information is unavailable."
                     return@Button
                 }
 
-                val newEntry =
-                    FacultyQRepository.joinAuthorityQueue(
-                        enrollmentNumber =
-                            enrollmentNumber,
+                if (purpose.isBlank()) {
+                    errorMessage =
+                        "Please enter the purpose of your visit."
+                    return@Button
+                }
 
-                        authorityId =
-                            authorityId,
+                scope.launch {
 
-                        purpose =
-                            purpose.trim(),
+                    joining = true
+                    errorMessage = null
 
-                        studentCurrentClass =
-                            student?.currentClass
-                                ?: "Not specified"
-                    )
+                    try {
 
-                if (newEntry != null) {
+                        /*
+                         * Make sure the student exists in PostgreSQL.
+                         */
+                        try {
 
-                    onJoined(
-                        newEntry.id
-                    )
+                            NetworkModule.api.getStudent(
+                                currentStudent.enrollmentNumber
+                            )
 
-                } else {
+                        } catch (e: HttpException) {
 
-                    Toast.makeText(
-                        context,
-                        "Unable to join the queue",
-                        Toast.LENGTH_SHORT
-                    ).show()
+                            if (e.code() == 404) {
+
+                                NetworkModule.api.addStudent(
+                                    AddStudentRequest(
+                                        enrollment_number =
+                                            currentStudent.enrollmentNumber,
+                                        name =
+                                            currentStudent.name,
+                                        current_class =
+                                            currentStudent.currentClass
+                                    )
+                                )
+
+                            } else {
+                                throw e
+                            }
+                        }
+
+                        /*
+                         * Check existing queue first.
+                         */
+                        val queueResponse =
+                            NetworkModule.api.getAuthorityQueue(
+                                authorityId
+                            )
+
+                        val existingEntry =
+                            queueResponse.queue.firstOrNull {
+
+                                it.student_enrollment_number ==
+                                        currentStudent.enrollmentNumber &&
+
+                                        (
+                                                it.status == "WAITING" ||
+                                                        it.status == "SERVING"
+                                                )
+                            }
+
+                        /*
+                         * Existing queue found.
+                         */
+                        if (existingEntry != null) {
+
+                            onJoined(existingEntry.id)
+
+                            return@launch
+                        }
+
+                        /*
+                         * No existing queue.
+                         * Create a new one.
+                         */
+                        val response =
+                            NetworkModule.api.joinAuthorityQueue(
+                                authorityId = authorityId,
+                                request =
+                                    JoinAuthorityQueueRequest(
+                                        student_enrollment_number =
+                                            currentStudent.enrollmentNumber,
+                                        purpose =
+                                            purpose.trim(),
+                                        student_current_class =
+                                            currentStudent.currentClass
+                                    )
+                            )
+
+                        onJoined(
+                            response.queue_entry.id
+                        )
+
+                    } catch (e: HttpException) {
+
+                        /*
+                         * Duplicate queue protection.
+                         */
+                        if (e.code() == 409) {
+
+                            try {
+
+                                val queueResponse =
+                                    NetworkModule.api.getAuthorityQueue(
+                                        authorityId
+                                    )
+
+                                val existingEntry =
+                                    queueResponse.queue.firstOrNull {
+
+                                        it.student_enrollment_number ==
+                                                currentStudent.enrollmentNumber &&
+
+                                                (
+                                                        it.status == "WAITING" ||
+                                                                it.status == "SERVING"
+                                                        )
+                                    }
+
+                                if (existingEntry != null) {
+
+                                    onJoined(
+                                        existingEntry.id
+                                    )
+
+                                } else {
+
+                                    errorMessage =
+                                        "You are already in this authority's queue."
+                                }
+
+                            } catch (inner: Exception) {
+
+                                errorMessage =
+                                    "You are already in this authority's queue."
+                            }
+
+                        } else {
+
+                            errorMessage =
+                                "Backend error: HTTP ${e.code()}"
+                        }
+
+                    } catch (e: Exception) {
+
+                        errorMessage =
+                            e.message
+                                ?: "Unable to join the queue."
+
+                    } finally {
+
+                        joining = false
+                    }
                 }
             },
-            modifier = Modifier.fillMaxWidth()
+
+            modifier = Modifier.fillMaxWidth(),
+
+            enabled =
+                !joining && student != null
         ) {
-            Text("Join Queue")
+
+            Text(
+                if (joining)
+                    "Checking queue..."
+                else
+                    "Join Queue"
+            )
         }
 
-        TextButton(
-            onClick = onBackClick
+        /*
+         * Back
+         */
+        Button(
+            onClick = onBack,
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !joining
         ) {
             Text("Back")
         }

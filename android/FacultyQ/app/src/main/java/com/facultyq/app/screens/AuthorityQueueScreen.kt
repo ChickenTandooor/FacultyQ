@@ -9,10 +9,20 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.facultyq.app.data.Authority
 import com.facultyq.app.data.FacultyQRepository
-import com.facultyq.app.data.QueueEntryStatus
+import com.facultyq.app.network.NetworkModule
+import com.facultyq.app.network.QueueEntryDto
+import kotlinx.coroutines.launch
+import retrofit2.HttpException
 
 @Composable
 fun AuthorityQueueScreen(
@@ -22,16 +32,155 @@ fun AuthorityQueueScreen(
     onBackClick: () -> Unit
 ) {
 
-    val authority =
-        FacultyQRepository.getAuthority(
-            authorityId
-        )
+    var authority by remember {
+        mutableStateOf<Authority?>(null)
+    }
 
-    val queueEntry =
-        FacultyQRepository.queueEntries.find {
-            it.id == queueId
+    var queueEntry by remember {
+        mutableStateOf<QueueEntryDto?>(null)
+    }
+
+    var loading by remember {
+        mutableStateOf(true)
+    }
+
+    var errorMessage by remember {
+        mutableStateOf<String?>(null)
+    }
+
+    var leavingQueue by remember {
+        mutableStateOf(false)
+    }
+
+    val scope = rememberCoroutineScope()
+
+    /*
+     * Load authority and queue from Docker backend.
+     */
+    LaunchedEffect(
+        authorityId,
+        enrollmentNumber,
+        queueId
+    ) {
+
+        loading = true
+        errorMessage = null
+
+        try {
+
+            /*
+             * Load authority from backend.
+             */
+            authority =
+                FacultyQRepository
+                    .fetchAuthorityFromBackend(
+                        authorityId
+                    )
+
+            if (authority == null) {
+
+                errorMessage =
+                    "Unable to load authority from backend."
+
+                loading = false
+                return@LaunchedEffect
+            }
+
+            /*
+             * Load the complete authority queue
+             * from the backend.
+             */
+            val response =
+                NetworkModule.api.getAuthorityQueue(
+                    authorityId
+                )
+
+            /*
+             * First try the exact queue ID returned
+             * when the student joined.
+             */
+            queueEntry =
+                response.queue.firstOrNull { entry ->
+
+                    entry.id == queueId &&
+                            entry.student_enrollment_number ==
+                            enrollmentNumber
+                }
+
+            /*
+             * If that isn't found, look for the student's
+             * active WAITING entry.
+             */
+            if (queueEntry == null) {
+
+                queueEntry =
+                    response.queue.firstOrNull { entry ->
+
+                        entry.student_enrollment_number ==
+                                enrollmentNumber &&
+                                entry.status.equals(
+                                    "WAITING",
+                                    ignoreCase = true
+                                )
+                    }
+            }
+
+            if (queueEntry == null) {
+
+                errorMessage =
+                    "No active queue entry was found " +
+                            "for this student."
+
+            }
+
+        } catch (error: HttpException) {
+
+            error.printStackTrace()
+
+            errorMessage =
+                "Backend error: HTTP ${error.code()}"
+
+        } catch (error: Exception) {
+
+            error.printStackTrace()
+
+            errorMessage =
+                "Unable to load queue: " +
+                        (error.message
+                            ?: "Unknown error")
         }
 
+        loading = false
+    }
+
+    /*
+     * Loading screen
+     */
+    if (loading) {
+
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(20.dp),
+
+            verticalArrangement =
+                Arrangement.spacedBy(16.dp)
+        ) {
+
+            Text(
+                text = "Loading your queue...",
+                style =
+                    MaterialTheme.typography.headlineSmall
+            )
+        }
+
+        return
+    }
+
+    /*
+     * Error screen
+     */
     if (
         authority == null ||
         queueEntry == null
@@ -53,6 +202,39 @@ fun AuthorityQueueScreen(
                     MaterialTheme.typography.headlineSmall
             )
 
+            Text(
+                text =
+                    errorMessage
+                        ?: "Unknown queue error.",
+
+                style =
+                    MaterialTheme.typography.bodyMedium
+            )
+
+            Text(
+                text =
+                    "Authority: $authorityId",
+
+                style =
+                    MaterialTheme.typography.bodySmall
+            )
+
+            Text(
+                text =
+                    "Queue ID: $queueId",
+
+                style =
+                    MaterialTheme.typography.bodySmall
+            )
+
+            Text(
+                text =
+                    "Enrollment: $enrollmentNumber",
+
+                style =
+                    MaterialTheme.typography.bodySmall
+            )
+
             Button(
                 onClick = onBackClick
             ) {
@@ -63,6 +245,15 @@ fun AuthorityQueueScreen(
         return
     }
 
+    val selectedAuthority =
+        authority!!
+
+    val selectedQueueEntry =
+        queueEntry!!
+
+    /*
+     * Successful queue screen
+     */
     Column(
         modifier =
             Modifier
@@ -80,21 +271,24 @@ fun AuthorityQueueScreen(
         )
 
         Text(
-            text = authority.name,
+            text = selectedAuthority.name,
             style =
                 MaterialTheme.typography.titleLarge
         )
 
         Text(
             text =
-                "${authority.role.name} · ${authority.department}",
+                "${selectedAuthority.role.name} · " +
+                        selectedAuthority.department,
+
             style =
                 MaterialTheme.typography.bodyMedium
         )
 
         Text(
             text =
-                "Cabin ${authority.cabin}",
+                "Cabin ${selectedAuthority.cabin}",
+
             style =
                 MaterialTheme.typography.bodyMedium
         )
@@ -107,7 +301,8 @@ fun AuthorityQueueScreen(
 
         Text(
             text =
-                queueEntry.position.toString(),
+                selectedQueueEntry.position.toString(),
+
             style =
                 MaterialTheme.typography.displaySmall
         )
@@ -119,7 +314,9 @@ fun AuthorityQueueScreen(
         )
 
         Text(
-            text = queueEntry.purpose,
+            text =
+                selectedQueueEntry.purpose,
+
             style =
                 MaterialTheme.typography.bodyLarge
         )
@@ -131,7 +328,9 @@ fun AuthorityQueueScreen(
         )
 
         Text(
-            text = enrollmentNumber,
+            text =
+                enrollmentNumber,
+
             style =
                 MaterialTheme.typography.bodyMedium
         )
@@ -144,26 +343,82 @@ fun AuthorityQueueScreen(
 
         Text(
             text =
-                queueEntry.status.name,
+                selectedQueueEntry.status,
+
             style =
                 MaterialTheme.typography.bodyMedium
         )
 
+        /*
+         * Leave Queue
+         */
         Button(
             onClick = {
 
-                FacultyQRepository.leaveQueue(
-                    queueId
-                )
+                scope.launch {
 
-                onBackClick()
+                    leavingQueue = true
+
+                    try {
+
+                        NetworkModule.api.leaveQueue(
+                            selectedQueueEntry.id
+                        )
+
+                        onBackClick()
+
+                    } catch (error: HttpException) {
+
+                        error.printStackTrace()
+
+                        errorMessage =
+                            "Unable to leave queue: " +
+                                    "HTTP ${error.code()}"
+
+                    } catch (error: Exception) {
+
+                        error.printStackTrace()
+
+                        errorMessage =
+                            "Unable to leave queue: " +
+                                    (error.message
+                                        ?: "Unknown error")
+
+                    } finally {
+
+                        leavingQueue = false
+                    }
+                }
             },
 
             modifier =
-                Modifier.fillMaxWidth()
+                Modifier.fillMaxWidth(),
+
+            enabled = !leavingQueue
         ) {
 
-            Text("Leave Queue")
+            Text(
+                if (leavingQueue) {
+                    "Leaving..."
+                } else {
+                    "Leave Queue"
+                }
+            )
+        }
+
+        /*
+         * Back does NOT leave the queue.
+         */
+        Button(
+            onClick = onBackClick,
+
+            modifier =
+                Modifier.fillMaxWidth(),
+
+            enabled = !leavingQueue
+        ) {
+
+            Text("Back")
         }
     }
 }

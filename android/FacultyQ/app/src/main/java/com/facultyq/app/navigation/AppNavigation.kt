@@ -239,7 +239,7 @@ fun AppNavigation() {
                 authorityId =
                     selectedAuthorityId,
 
-                onBackClick = {
+                onBack = {
 
                     currentScreen =
                         "authoritySearch"
