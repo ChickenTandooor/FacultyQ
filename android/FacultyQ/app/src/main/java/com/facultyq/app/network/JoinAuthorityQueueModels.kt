@@ -48,3 +48,9 @@ data class AuthorityQueueResponse(
 data class QueueActionResponse(
     val message: String
 )
+
+data class StudentQueueHistoryResponse(
+    val student_enrollment_number: String,
+    val count: Int,
+    val queue: List<QueueEntryDto>
+)

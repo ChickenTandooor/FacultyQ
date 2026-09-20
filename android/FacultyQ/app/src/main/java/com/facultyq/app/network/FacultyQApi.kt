@@ -20,6 +20,11 @@ interface FacultyQApi {
         @Path("enrollment_number") enrollmentNumber: String
     ): StudentDto
 
+    @GET("students/{enrollment_number}/queue")
+    suspend fun getStudentQueueHistory(
+        @Path("enrollment_number") enrollmentNumber: String
+    ): StudentQueueHistoryResponse
+
     @POST("students")
     suspend fun addStudent(
         @Body request: AddStudentRequest

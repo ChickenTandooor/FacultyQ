@@ -637,6 +637,48 @@ def get_student(
 
         db.close()
 
+# ---------------------------------------
+# GET STUDENT QUEUE HISTORY
+# ---------------------------------------
+
+@app.get("/students/{enrollment_number}/queue")
+def get_student_queue_history(
+    enrollment_number: str
+):
+
+    db = SessionLocal()
+
+    try:
+
+        queue_history = (
+            db.query(QueueEntry)
+            .filter(
+                QueueEntry.student_enrollment_number ==
+                enrollment_number,
+                QueueEntry.target_type ==
+                "AUTHORITY"
+            )
+            .order_by(
+                QueueEntry.id.desc()
+            )
+            .all()
+        )
+
+        return {
+            "student_enrollment_number":
+                enrollment_number,
+            "count":
+                len(queue_history),
+            "queue": [
+                queue_entry_to_dict(entry)
+                for entry in queue_history
+            ]
+        }
+
+    finally:
+
+        db.close()        
+
 
 # =======================================
 # AUTHORITY QUEUE ENDPOINTS
