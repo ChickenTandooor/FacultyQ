@@ -4,6 +4,8 @@ import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
 import retrofit2.http.Path
+import retrofit2.http.PATCH
+
 
 interface FacultyQApi {
 
@@ -35,6 +37,13 @@ interface FacultyQApi {
         @Path("authority_id") authorityId: String
     ): AuthorityQueueResponse
 
+
+    @GET("authorities/{authority_id}/history")
+    suspend fun getAuthorityHistory(
+        @Path("authority_id") authorityId: String
+    ): AuthorityHistoryResponse
+
+
     @POST("authorities/{authority_id}/queue")
     suspend fun joinAuthorityQueue(
         @Path("authority_id") authorityId: String,
@@ -55,4 +64,12 @@ interface FacultyQApi {
     suspend fun completeQueue(
         @Path("queue_id") queueId: String
     ): QueueActionResponse
+
+
+    @PATCH("authorities/{authority_id}/status")
+    suspend fun updateAuthorityStatus(
+        @Path("authority_id") authorityId: String,
+        @Body request: AuthorityStatusUpdateRequest
+    ): AuthorityDto
+
 }

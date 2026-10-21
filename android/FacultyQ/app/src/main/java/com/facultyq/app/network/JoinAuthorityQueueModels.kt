@@ -1,3 +1,4 @@
+
 package com.facultyq.app.network
 
 data class AddStudentRequest(
@@ -31,7 +32,8 @@ data class QueueEntryDto(
     val purpose: String,
     val student_current_class: String,
     val position: Int,
-    val status: String
+    val status: String,
+    val completed_at: String? = null
 )
 
 data class JoinAuthorityQueueResponse(
@@ -45,6 +47,12 @@ data class AuthorityQueueResponse(
     val queue: List<QueueEntryDto>
 )
 
+data class AuthorityHistoryResponse(
+    val authority_id: String,
+    val count: Int,
+    val history: List<QueueEntryDto>
+)
+
 data class QueueActionResponse(
     val message: String
 )
@@ -53,4 +61,9 @@ data class StudentQueueHistoryResponse(
     val student_enrollment_number: String,
     val count: Int,
     val queue: List<QueueEntryDto>
+)
+
+
+data class AuthorityStatusUpdateRequest(
+    val status: String
 )
