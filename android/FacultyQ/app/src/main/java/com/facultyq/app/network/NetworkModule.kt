@@ -13,7 +13,8 @@ object NetworkModule {
     private val baseUrls = listOf(
         "http://192.168.0.247:8000/",
         "http://172.27.177.183:8000/",
-        "http://10.235.180.59:8000/"
+        "http://10.235.180.59:8000/",
+        "http://10.50.124.0:8000/"
     )
 
     @Volatile

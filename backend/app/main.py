@@ -4,7 +4,7 @@ from datetime import datetime
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
-from sqlalchemy import Column, Integer, String, create_engine
+from sqlalchemy import Column, Integer, String, create_engine, text
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 
@@ -169,6 +169,10 @@ class QueueEntry(Base):
         String,
         default="WAITING"
     )
+    completed_at = Column(
+        String,
+        nullable=True
+    )
 
 
 # ---------------------------------------
@@ -178,6 +182,14 @@ class QueueEntry(Base):
 Base.metadata.create_all(
     bind=engine
 )
+# Add the completion timestamp to existing databases safely.
+with engine.begin() as connection:
+    connection.execute(
+        text(
+            "ALTER TABLE queue_entries "
+            "ADD COLUMN IF NOT EXISTS completed_at VARCHAR"
+        )
+    )
 
 
 # ---------------------------------------
@@ -274,7 +286,9 @@ def queue_entry_to_dict(entry):
         "position":
             entry.position,
         "status":
-            entry.status
+            entry.status,
+        "completed_at": 
+            entry.completed_at            
     }
 
 
@@ -744,6 +758,50 @@ def get_authority_queue(
 
 
 # ---------------------------------------
+# AUTHORITY HISTORY
+# ---------------------------------------
+
+@app.get("/authorities/{authority_id}/history")
+def get_authority_history(authority_id: str):
+    db = SessionLocal()
+
+    try:
+        authority = (
+            db.query(Authority)
+            .filter(Authority.id == authority_id)
+            .first()
+        )
+
+        if authority is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Authority not found"
+            )
+
+        history = (
+            db.query(QueueEntry)
+            .filter(
+                QueueEntry.target_id == authority_id,
+                QueueEntry.target_type == "AUTHORITY",
+                QueueEntry.status == "COMPLETED"
+            )
+            .order_by(QueueEntry.completed_at.desc())
+            .all()
+        )
+
+        return {
+            "authority_id": authority_id,
+            "count": len(history),
+            "history": [
+                queue_entry_to_dict(entry)
+                for entry in history
+            ]
+        }
+
+    finally:
+        db.close()
+
+# ---------------------------------------
 # JOIN AUTHORITY QUEUE
 # ---------------------------------------
 
@@ -995,6 +1053,7 @@ def complete_queue_entry(
             )
 
         entry.status = "COMPLETED"
+        entry.completed_at = datetime.now().astimezone().isoformat()
 
         remaining = (
             db.query(QueueEntry)

@@ -1,12 +1,17 @@
+
 package com.facultyq.app.navigation
 
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
 import com.facultyq.app.data.FacultyQRepository
 import com.facultyq.app.screens.AdminScreen
 import com.facultyq.app.screens.AuthorityDashboardScreen
+import com.facultyq.app.screens.AuthorityHistoryScreen
+import com.facultyq.app.screens.AuthorityLoginScreen
 import com.facultyq.app.screens.AuthorityQueueDetailsScreen
+import com.facultyq.app.screens.AuthorityQueueScreen
 import com.facultyq.app.screens.AuthoritySearchScreen
 import com.facultyq.app.screens.FacultyDashboardScreen
 import com.facultyq.app.screens.FacultyLoginScreen
@@ -16,241 +21,129 @@ import com.facultyq.app.screens.QueueDetailsScreen
 import com.facultyq.app.screens.QueueScreen
 import com.facultyq.app.screens.StartScreen
 import com.facultyq.app.screens.StudentScreen
-import com.facultyq.app.screens.AuthorityQueueScreen
-import androidx.activity.compose.BackHandler
-import com.facultyq.app.screens.AuthorityLoginScreen
+
 @Composable
 fun AppNavigation() {
 
-    var currentScreen by
-    remember {
+    var currentScreen by remember {
         mutableStateOf("start")
     }
 
-    var enrollmentNumber by
-    remember {
+    var enrollmentNumber by remember {
         mutableStateOf(
-            FacultyQRepository
-                .savedStudent
-                .value
-                ?.enrollmentNumber
-                ?: ""
+            FacultyQRepository.savedStudent.value?.enrollmentNumber ?: ""
         )
     }
 
-    var selectedFacultyId by
-    remember {
+    var selectedFacultyId by remember {
         mutableStateOf("")
     }
 
-    var selectedAuthorityId by
-    remember {
+    var selectedAuthorityId by remember {
         mutableStateOf("")
     }
 
-    var queueId by
-    remember {
+    var queueId by remember {
         mutableStateOf("")
     }
 
-    val context =
-        LocalContext.current
+    val context = LocalContext.current
 
-    BackHandler(
-        enabled = currentScreen != "start"
-    ) {
-
+    BackHandler(enabled = currentScreen != "start") {
         currentScreen = when (currentScreen) {
 
             // Student flow
-            "student" ->
-                "start"
+            "student" -> "start"
+            "authoritySearch" -> "start"
+            "authorityQueueDetails" -> "authoritySearch"
+            "authorityQueue" -> "authorityQueueDetails"
 
-            "authoritySearch" ->
-                "start"
+            // Older faculty flow
+            "facultySearch" -> "start"
+            "queueDetails" -> "facultySearch"
+            "queue" -> "queueDetails"
 
-            "authorityQueueDetails" ->
-                "authoritySearch"
+            // Authority flow
+            "authorityLogin" -> "start"
+            "authorityDashboard" -> "authorityLogin"
+            "authorityHistory" -> "authorityDashboard"
 
-            "authorityQueue" ->
-                "authorityQueueDetails"
-
-
-            // Old faculty flow
-            "facultySearch" ->
-                "start"
-
-            "queueDetails" ->
-                "facultySearch"
-
-            "queue" ->
-                "queueDetails"
-
-
-            // Faculty authority-management flow
-
-            "authorityLogin" ->
-                "start"
-
-            "authorityDashboard" ->
-                "authorityLogin"
-
-            "facultyLogin" ->
-                "start"
-
-            "facultyDashboard" ->
-                "facultyLogin"
-
-            "facultyRegistration" ->
-                "start"
-
+            // Faculty management flow
+            "facultyLogin" -> "start"
+            "facultyDashboard" -> "facultyLogin"
+            "facultyRegistration" -> "start"
 
             // Admin
-            "admin" ->
-                "start"
+            "admin" -> "start"
 
-
-            // Safety fallback
-            else ->
-                "start"
+            else -> "start"
         }
     }
 
     when (currentScreen) {
 
-        // -------------------------
-        // START
-        // -------------------------
-
+        // START SCREEN
         "start" -> {
-
             StartScreen(
-
                 onStudentClick = {
-
                     val savedStudent =
-                        FacultyQRepository
-                            .savedStudent
-                            .value
+                        FacultyQRepository.savedStudent.value
 
                     if (savedStudent != null) {
-
-                        enrollmentNumber =
-                            savedStudent.enrollmentNumber
-
-                        currentScreen =
-                            "authoritySearch"
-
+                        enrollmentNumber = savedStudent.enrollmentNumber
+                        currentScreen = "authoritySearch"
                     } else {
-
-                        currentScreen =
-                            "student"
+                        currentScreen = "student"
                     }
                 },
-
                 onFacultyClick = {
-
-                    currentScreen =
-                        "authorityLogin"
+                    currentScreen = "authorityLogin"
                 },
-
                 onAdminClick = {
-
-                    currentScreen =
-                        "admin"
+                    currentScreen = "admin"
                 },
-
                 onFacultyRegisterClick = {
-
-                    currentScreen =
-                        "facultyRegistration"
+                    currentScreen = "facultyRegistration"
                 }
             )
         }
 
-
-        // -------------------------
-        // FIRST-TIME STUDENT SETUP
-        // -------------------------
-
+        // STUDENT SETUP
         "student" -> {
-
             StudentScreen(
-
                 onBackClick = {
-
-                    currentScreen =
-                        "start"
+                    currentScreen = "start"
                 },
-
-                onContinueClick = {
-
-                        number ->
-
-                    enrollmentNumber =
-                        number
-
-                    currentScreen =
-                        "authoritySearch"
+                onContinueClick = { number ->
+                    enrollmentNumber = number
+                    currentScreen = "authoritySearch"
                 }
             )
         }
 
-
-        // -------------------------
         // AUTHORITY SEARCH
-        // -------------------------
-
         "authoritySearch" -> {
-
             AuthoritySearchScreen(
-
-                onAuthoritySelected = {
-
-                        authorityId ->
-
-                    selectedAuthorityId =
-                        authorityId
-
-                    currentScreen =
-                        "authorityQueueDetails"
+                onAuthoritySelected = { authorityId ->
+                    selectedAuthorityId = authorityId
+                    currentScreen = "authorityQueueDetails"
                 },
-
                 onBack = {
-
-                    currentScreen =
-                        "start"
+                    currentScreen = "start"
                 }
             )
         }
 
-
-// -------------------------
-// AUTHORITY QUEUE DETAILS
-// -------------------------
-
+        // AUTHORITY QUEUE DETAILS
         "authorityQueueDetails" -> {
-
             AuthorityQueueDetailsScreen(
-
-                enrollmentNumber =
-                    enrollmentNumber,
-
-                authorityId =
-                    selectedAuthorityId,
-
+                enrollmentNumber = enrollmentNumber,
+                authorityId = selectedAuthorityId,
                 onBack = {
-
-                    currentScreen =
-                        "authoritySearch"
+                    currentScreen = "authoritySearch"
                 },
-
-                onJoined = {
-
-                        newQueueId ->
-
-                    queueId =
-                        newQueueId
+                onJoined = { newQueueId ->
+                    queueId = newQueueId
 
                     Toast.makeText(
                         context,
@@ -258,252 +151,146 @@ fun AppNavigation() {
                         Toast.LENGTH_SHORT
                     ).show()
 
-                    currentScreen =
-                        "authorityQueue"
+                    currentScreen = "authorityQueue"
                 }
             )
         }
 
-
-        // -------------------------
-        // AUTHORITY QUEUE
-        // -------------------------
-
+        // STUDENT AUTHORITY QUEUE
         "authorityQueue" -> {
-
             AuthorityQueueScreen(
-
-                enrollmentNumber =
-                    enrollmentNumber,
-
-                authorityId =
-                    selectedAuthorityId,
-
-                queueId =
-                    queueId,
-
+                enrollmentNumber = enrollmentNumber,
+                authorityId = selectedAuthorityId,
+                queueId = queueId,
                 onBackClick = {
-
-                    currentScreen =
-                        "authoritySearch"
+                    currentScreen = "authoritySearch"
                 }
             )
         }
 
-
-        // -------------------------
-        // FACULTY SEARCH
-        // -------------------------
-
+        // OLDER FACULTY SEARCH
         "facultySearch" -> {
-
             FacultySearchScreen(
-
-                enrollmentNumber =
-                    enrollmentNumber,
-
+                enrollmentNumber = enrollmentNumber,
                 onBackClick = {
-
-                    currentScreen =
-                        "start"
+                    currentScreen = "start"
                 },
-
-                onApplyClick = {
-
-                        facultyId ->
-
-                    selectedFacultyId =
-                        facultyId
-
-                    currentScreen =
-                        "queueDetails"
+                onApplyClick = { facultyId ->
+                    selectedFacultyId = facultyId
+                    currentScreen = "queueDetails"
                 }
             )
         }
 
-
-        // -------------------------
-        // QUEUE DETAILS
-        // -------------------------
-
+        // OLDER FACULTY QUEUE DETAILS
         "queueDetails" -> {
-
             QueueDetailsScreen(
-
-                enrollmentNumber =
-                    enrollmentNumber,
-
-                facultyId =
-                    selectedFacultyId,
-
+                enrollmentNumber = enrollmentNumber,
+                facultyId = selectedFacultyId,
                 onBackClick = {
-
-                    currentScreen =
-                        "facultySearch"
+                    currentScreen = "facultySearch"
                 },
-
-                onJoined = {
-
-                        newQueueId ->
-
-                    queueId =
-                        newQueueId
-
-                    currentScreen =
-                        "queue"
+                onJoined = { newQueueId ->
+                    queueId = newQueueId
+                    currentScreen = "queue"
                 }
             )
         }
 
-
-        // -------------------------
-        // QUEUE
-        // -------------------------
-
+        // OLDER FACULTY QUEUE
         "queue" -> {
-
             QueueScreen(
-
-                enrollmentNumber =
-                    enrollmentNumber,
-
-                facultyId =
-                    selectedFacultyId,
-
-                queueId =
-                    queueId,
-
+                enrollmentNumber = enrollmentNumber,
+                facultyId = selectedFacultyId,
+                queueId = queueId,
                 onBackClick = {
-
-                    currentScreen =
-                        "facultySearch"
+                    currentScreen = "facultySearch"
                 }
             )
         }
 
-        // -------------------------
-        // AUTHORITY FLOW
-        // -------------------------
+        // AUTHORITY LOGIN
+        "authorityLogin" -> {
+            AuthorityLoginScreen(
+                onAuthoritySelected = { authorityId ->
+                    selectedAuthorityId = authorityId
+                    currentScreen = "authorityDashboard"
+                },
+                onBackClick = {
+                    currentScreen = "start"
+                }
+            )
+        }
 
-        "authorityLogin" -> AuthorityLoginScreen(
+        // AUTHORITY DASHBOARD
+        "authorityDashboard" -> {
+            AuthorityDashboardScreen(
+                authorityId = selectedAuthorityId,
+                onBackClick = {
+                    currentScreen = "authorityLogin"
+                },
+                onHistoryClick = {
+                    currentScreen = "authorityHistory"
+                }
+            )
+        }
 
-            onAuthoritySelected = { authorityId ->
+        // AUTHORITY APPOINTMENT HISTORY
+        "authorityHistory" -> {
+            AuthorityHistoryScreen(
+                authorityId = selectedAuthorityId,
+                onBackClick = {
+                    currentScreen = "authorityDashboard"
+                }
+            )
+        }
 
-                selectedAuthorityId =
-                    authorityId
-
-                currentScreen =
-                    "authorityDashboard"
-            },
-
-            onBackClick = {
-
-                currentScreen =
-                    "start"
-            }
-        )
-
-        "authorityDashboard" -> AuthorityDashboardScreen(
-
-            authorityId = selectedAuthorityId,
-
-            onBackClick = {
-
-                currentScreen =
-                    "authorityLogin"
-            }
-        )
-
-
-        // -------------------------
-        // FACULTY LOGIN
-        // -------------------------
-
+        // OLDER FACULTY LOGIN
         "facultyLogin" -> {
-
             FacultyLoginScreen(
-
                 onBackClick = {
-
-                    currentScreen =
-                        "start"
+                    currentScreen = "start"
                 },
-
-                onFacultySelected = {
-
-                        facultyId ->
-
-                    selectedFacultyId =
-                        facultyId
-
-                    currentScreen =
-                        "facultyDashboard"
+                onFacultySelected = { facultyId ->
+                    selectedFacultyId = facultyId
+                    currentScreen = "facultyDashboard"
                 }
             )
         }
 
-
-        // -------------------------
-        // FACULTY DASHBOARD
-        // -------------------------
-
+        // OLDER FACULTY DASHBOARD
         "facultyDashboard" -> {
-
             FacultyDashboardScreen(
-
-                facultyId =
-                    selectedFacultyId,
-
+                facultyId = selectedFacultyId,
                 onBackClick = {
-
-                    currentScreen =
-                        "facultyLogin"
+                    currentScreen = "facultyLogin"
                 }
             )
         }
 
-
-        // -------------------------
         // FACULTY REGISTRATION
-        // -------------------------
-
         "facultyRegistration" -> {
-
             FacultyRegistrationScreen(
-
                 onBackClick = {
-
-                    currentScreen =
-                        "start"
+                    currentScreen = "start"
                 },
-
                 onSubmitted = {
-
                     Toast.makeText(
                         context,
                         "Registration submitted for admin verification",
                         Toast.LENGTH_SHORT
                     ).show()
 
-                    currentScreen =
-                        "start"
+                    currentScreen = "start"
                 }
             )
         }
 
-
-        // -------------------------
         // ADMIN
-        // -------------------------
-
         "admin" -> {
-
             AdminScreen(
-
                 onBackClick = {
-
-                    currentScreen =
-                        "start"
+                    currentScreen = "start"
                 }
             )
         }
